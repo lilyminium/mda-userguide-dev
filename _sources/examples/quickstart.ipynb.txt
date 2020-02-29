@@ -1,0 +1,1643 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Quick start guide"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis version: ≥ 0.18.0\n",
+    "\n",
+    "Last updated: November 2019\n",
+    "\n",
+    "This guide is designed as a basic introduction to MDAnalysis to get you up and running. You can see more complex tasks in our [Example notebooks](https://mdanalysis.org/UserGuide/examples/README.html). This page outlines how to:\n",
+    "\n",
+    "* [load a molecular dynamics structure or trajectory](#Loading-a-structure-or-trajectory)\n",
+    "* [work with AtomGroups, a central data structure in MDAnalysis](#Working-with-groups-of-atoms)\n",
+    "* [work with a trajectory](#Working-with-trajectories)\n",
+    "* [write out coordinates](#Writing-out-coordinates)\n",
+    "<!--* [select groups via selection language or indexing](#Selection)-->\n",
+    "* [use the analysis algorithms in MDAnalysis](#Analysis)\n",
+    "* [correct and automated citation of MDAnalysis and algorithms](#References)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<Universe with 3341 atoms>\n",
+      "0.18.0\n"
+     ]
+    }
+   ],
+   "source": [
+    "import MDAnalysis as mda\n",
+    "from MDAnalysis.tests.datafiles import PSF, DCD, GRO, XTC\n",
+    "\n",
+    "print(mda.Universe(PSF, DCD))\n",
+    "print(mda.__version__)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "This tutorial assumes that you already have MDAnalysis installed. Running the cell above should give something similar to:\n",
+    "\n",
+    "```console\n",
+    "<Universe with 3341 atoms>\n",
+    "0.18.0\n",
+    "```\n",
+    "If you get an error message, you need to install MDAnalysis. If your version is under `0.18.0`, you need to upgrade MDAnalysis. [Instructions for both are here.](https://www.mdanalysis.org/UserGuide/installation) After installing, restart this notebook."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Overview"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis is a Python package that provides tools to access and analyse data in molecular dynamics trajectories. Several key data structures form the backbone of MDAnalysis.\n",
+    "\n",
+    "* A molecular system consists of particles. A particle is represented as an `Atom` object, even if it is a coarse-grained bead. \n",
+    "* `Atom`s are grouped into [AtomGroup](https://www.mdanalysis.org/UserGuide/atomgroup)s. The `AtomGroup` is probably the most important class in MDAnalysis, as almost everything can be accessed through it. See [Working with atoms](#Working-with-groups-of-atoms) below. \n",
+    "* A `Universe` contains all the particles in a molecular system in an `AtomGroup` accessible at the `.atoms` attribute, and combines it with a trajectory at `.trajectory`. \n",
+    "\n",
+    "A fundamental concept in MDAnalysis is that at any one time, \n",
+    "only one time frame of the trajectory is being accessed. The \n",
+    "`trajectory` attribute of a `Universe` is usually a file reader. \n",
+    "Think of the trajectory as a function $X(t)$ of the frame index $t$ \n",
+    "that only makes the data from this specific frame available. This structure is important \n",
+    "because it allows MDAnalysis to work with trajectory files too large to fit \n",
+    "into the computer's memory. \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Loading a structure or trajectory"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Working with MDAnalysis typically starts with loading data into a `Universe`, the central data structure in MDAnalysis. The [user guide](https://www.mdanalysis.org/UserGuide/universe) has a complete explanation of ways to create and manipulate a `Universe`.\n",
+    "\n",
+    "\n",
+    "The first arguments for creating a `Universe` are topology and trajectory files.\n",
+    "\n",
+    "* A **topology file** is always required for loading data into a Universe. A topology file lists atoms, residues, and their connectivity. MDAnalysis accepts the PSF, PDB, CRD, and GRO formats.\n",
+    "\n",
+    "* A topology file can then be followed by **any number of trajectory files**. A trajectory file contains a list of coordinates in the order defined in the topology. If no trajectory files are given, then only a structure is loaded. If multiple trajectory files are given, the trajectories are concatenated in the given order. MDAnalysis accepts single frames (e.g. PDB, CRD, GRO) and timeseries data (e.g. DCD, XTC, TRR, XYZ). "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<Universe with 3341 atoms>\n",
+      "False\n"
+     ]
+    }
+   ],
+   "source": [
+    "psf = mda.Universe(PSF)\n",
+    "print(psf)\n",
+    "print(hasattr(psf, 'trajectory'))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "As PSF files don't contain any coordinate information and no trajectory file has been loaded, the `structure_only` universe does not contain a trajectory. If the topology file does contain coordinate information, a trajectory of 1 frame is created."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<Universe with 47681 atoms>\n",
+      "1\n"
+     ]
+    }
+   ],
+   "source": [
+    "gro = mda.Universe(GRO)\n",
+    "print(gro)\n",
+    "print(len(gro.trajectory))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "For the remainder of this guide we will work with the universe `u`, created below. This is a simulation where the enzyme adenylate kinase samples a transition from a closed to an open conformation [(Beckstein *et al.*, 2009)](https://doi.org/10.1016/j.jmb.2009.09.009)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<Universe with 3341 atoms>\n",
+      "98\n"
+     ]
+    }
+   ],
+   "source": [
+    "u = mda.Universe(PSF, DCD)\n",
+    "print(u)\n",
+    "print(len(u.trajectory))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<div class=\"alert alert-info\">\n",
+    "\n",
+    "**Note**\n",
+    "\n",
+    "The MDAnalysis test suite is packaged with a bunch of test files and trajectories, which are named after their file format. We are using these files throughout this guide for convenience. To analyse your own files, simply replace the `PSF` and `DCD` above with paths to your own files. For example:\n",
+    "\n",
+    "```python\n",
+    "structure_only = mda.Universe(\"my_pdb_file.pdb\")\n",
+    "```\n",
+    "</div>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Working with groups of atoms"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Most analysis requires creating and working with an `AtomGroup`, a collection of `Atom`s. For convenience, you can also work with chemically meaningful groups of `Atoms` such as a `Residue` or a `Segment`. These come with analogous containers to `AtomGroup`: `ResidueGroup` and `SegmentGroup`. For instance, the `.residues` attribute of a `Universe` returns a `ResidueGroup`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<ResidueGroup [<Residue MET, 1>, <Residue ARG, 2>, <Residue ILE, 3>, ..., <Residue ILE, 212>, <Residue LEU, 213>, <Residue GLY, 214>]>\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.residues)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Selecting atoms"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The easiest way to access the particles of your `Universe` is with the `atoms` attribute:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 3341 atoms>"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "u.atoms"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "This returns an `AtomGroup`, which can be thought of as a list of `Atom` objects. Most analysis involves working with groups of atoms in `AtomGroup`s. `AtomGroup`s can easily be created by slicing another `AtomGroup`. For example, the below slice returns the last five atoms."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<AtomGroup [<Atom 3337: HA1 of type 6 of resname GLY, resid 214 and segid 4AKE>, <Atom 3338: HA2 of type 6 of resname GLY, resid 214 and segid 4AKE>, <Atom 3339: C of type 32 of resname GLY, resid 214 and segid 4AKE>, <Atom 3340: OT1 of type 72 of resname GLY, resid 214 and segid 4AKE>, <Atom 3341: OT2 of type 72 of resname GLY, resid 214 and segid 4AKE>]>\n"
+     ]
+    }
+   ],
+   "source": [
+    "last_five = u.atoms[-5:]\n",
+    "print(last_five)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis supports fancy indexing: passing an array or list of indices to get a new AtomGroup with the atoms at those indices in the old AtomGroup."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<AtomGroup [<Atom 3337: HA1 of type 6 of resname GLY, resid 214 and segid 4AKE>, <Atom 3340: OT1 of type 72 of resname GLY, resid 214 and segid 4AKE>, <Atom 3341: OT2 of type 72 of resname GLY, resid 214 and segid 4AKE>, <Atom 3338: HA2 of type 6 of resname GLY, resid 214 and segid 4AKE>, <Atom 3340: OT1 of type 72 of resname GLY, resid 214 and segid 4AKE>, <Atom 3337: HA1 of type 6 of resname GLY, resid 214 and segid 4AKE>]>\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(last_five[[0, 3, -1, 1, 3, 0]])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis has also implemented a [powerful atom selection language](https://www.mdanalysis.org/UserGuide/selections) that is similar to existing languages in VMD, PyMol, and other packages. This is available with the `.select_atoms()` function  of an `AtomGroup` or `Universe` instance:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<AtomGroup [<Atom 318: N of type 54 of resname GLU, resid 22 and segid 4AKE>, <Atom 319: HN of type 1 of resname GLU, resid 22 and segid 4AKE>, <Atom 320: CA of type 22 of resname GLU, resid 22 and segid 4AKE>, ..., <Atom 3271: OE2 of type 72 of resname GLU, resid 210 and segid 4AKE>, <Atom 3272: C of type 20 of resname GLU, resid 210 and segid 4AKE>, <Atom 3273: O of type 70 of resname GLU, resid 210 and segid 4AKE>]>\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.select_atoms('resname ASP or resname GLU'))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Numerical ranges can be written as `first-last` or `first:last` where the range is **inclusive**. Note that in slicing, the `last` index is not included."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "51\n",
+      "50\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.select_atoms('resid 50-100').n_residues)\n",
+    "print(u.residues[50:100].n_residues)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Selections can also be combined with boolean operators, and allow wildcards. \n",
+    "\n",
+    "For example, the command below selects the $C_{\\alpha}$ atoms of glutamic acid and histidine in the first 100 residues of the protein. Glutamic acid is typically named \"GLU\", but histidine can be named \"HIS\", \"HSD\", or \"HSE\" depending on its protonation state and the force field used."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 6 atoms>"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "u.select_atoms(\"(resname GLU or resname HS*) and name CA and (resid 1:100)\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<div class=\"alert alert-info\">\n",
+    "\n",
+    "**Note**\n",
+    "\n",
+    "An `AtomGroup` created from a selection is sorted and duplicate elements are removed. This is not true for an `AtomGroup` produced by slicing. Thus, slicing can be used when the order of atoms is crucial.\n",
+    "</div>\n",
+    "\n",
+    "\n",
+    "\n",
+    "The [user guide](https://www.mdanalysis.org/UserGuide/atomgroup) has a complete rundown of creating AtomGroups through indexing, selection language, and set methods."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Getting atom information from AtomGroups"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "An `AtomGroup` can tell you information about the atoms inside it with a number of convenient attributes."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['N' 'HT1' 'HT2' 'HT3' 'CA' 'HA' 'CB' 'HB1' 'HB2' 'CG' 'HG1' 'HG2' 'SD'\n",
+      " 'CE' 'HE1' 'HE2' 'HE3' 'C' 'O' 'N']\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.atoms[:20].names)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[ 1.008  1.008  1.008 12.011  1.008  1.008 12.011  1.008  1.008  1.008\n",
+      " 12.011 15.999 14.007  1.008 12.011  1.008 12.011  1.008 12.011  1.008]\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.atoms[50:70].masses)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "It also knows which residues and segments the atoms belong to. The `.residues` and `.segments` return a `ResidueGroup` and `SegmentGroup`, respectively."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<ResidueGroup [<Residue MET, 1>, <Residue ARG, 2>]>\n",
+      "<SegmentGroup [<Segment 4AKE>]>\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.atoms[:20].residues)\n",
+    "print(u.atoms[-20:].segments)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Note that there are no duplicates in the `ResidueGroup` and `SegmentGroup` above. To get residue attributes atom-wise, you can access them directly through `AtomGroup`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET'\n",
+      " 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'MET' 'ARG']\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.atoms[:20].resnames)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "You can group atoms together by topology attributes.\n",
+    "\n",
+    "For example, to group atoms with the same residue name and mass together:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{('ASP', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('ASP', 'C'): <AtomGroup with 1 atom>,\n",
+       " ('GLU', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('LEU', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('ASN', 'O'): <AtomGroup with 1 atom>,\n",
+       " ('GLN', 'C'): <AtomGroup with 1 atom>,\n",
+       " ('THR', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('ARG', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('ALA', 'HN'): <AtomGroup with 2 atoms>,\n",
+       " ('ALA', 'C'): <AtomGroup with 1 atom>,\n",
+       " ('LYS', 'N'): <AtomGroup with 1 atom>,\n",
+       " ('ILE', 'C'): <AtomGroup with 2 atoms>}"
+      ]
+     },
+     "execution_count": 16,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "near_met = u.select_atoms('not resname MET and (around 2 resname MET)')\n",
+    "near_met.groupby(['resnames', 'names'])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "A complete list of topology attributes can be found [in the user guide.](https://www.mdanalysis.org/UserGuide/topology_system.html#topology-attributes)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### AtomGroup positions and methods"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The `.positions` attribute is probably the most important information you can get from an `AtomGroup`: a `numpy.ndarray` of coordinates, with the shape (n_atoms, 3)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[[11.664622    8.393473   -8.983231  ]\n",
+      " [11.414839    5.4344215  -6.5134845 ]\n",
+      " [ 8.959755    5.612923   -3.6132305 ]\n",
+      " [ 8.290068    3.075991   -0.79665166]\n",
+      " [ 5.011126    3.7638984   1.130355  ]]\n",
+      "(5, 3)\n"
+     ]
+    }
+   ],
+   "source": [
+    "ca = u.select_atoms('resid 1-5 and name CA')\n",
+    "print(ca.positions)\n",
+    "print(ca.positions.shape)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "A number of other quantities have been defined for an AtomGroup, including:\n",
+    "\n",
+    "* `.center_of_mass()`\n",
+    "* `.center_of_geometry()`\n",
+    "* `.total_mass()`\n",
+    "* `.total_charge()`\n",
+    "* `.radius_of_gyration()`\n",
+    "* `.bsphere()` (the bounding sphere of the selection)\n",
+    "\n",
+    "See the [user guide](https://www.mdanalysis.org/UserGuide/topology_system.html#topology-specific-methods) for a complete list and description of AtomGroup methods."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[ 9.06808195  5.25614133 -3.75524844]\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(ca.center_of_mass())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<div class=\"alert alert-info\">\n",
+    "\n",
+    "**Note**\n",
+    "\n",
+    "The `.center_of_mass()` function, like many of the analysis modules in MDAnalysis, relies on having accurate mass properties available. **[Particle masses may not always be available or accurate!](https://www.mdanalysis.org/UserGuide/formats/guessing.html#masses)**\n",
+    "\n",
+    "Currently, MDAnalysis assigns masses to particles based on their element or 'atom type', which is guessed from the particle name. If MDAnalysis guesses incorrectly (e.g. a calcium atom called CA is treated as a $C_{\\alpha}$), the mass of that atom will be inaccurate. If MDAnalysis has no idea what the particle is (e.g. coarse-grained beads), it will raise a warning, and give that particle a mass of 0. \n",
+    "\n",
+    "To be certain that MDAnalysis is using the correct masses, you can set them manually.\n",
+    "</div>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis can also create [topology geometries](https://www.mdanalysis.org/UserGuide/topology_system.html#topology-objects) such as bonds, angles, dihedral angles, and improper angles from an `AtomGroup`. This `AtomGroup` has a special requirement: only the atoms involved in the geometry can be in the group. For example, an `AtomGroup` used to create a bond can only have 2 atoms in it; an `AtomGroup` used to create a dihedral or improper angle must have 4 atoms."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['N' 'HT1' 'HT2']\n"
+     ]
+    }
+   ],
+   "source": [
+    "nhh = u.atoms[:3]\n",
+    "print(nhh.names)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "After a topology object such as an angle is created, the value of the angle (in degrees) can be calculated based on the positions of the atoms."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "37.992344\n"
+     ]
+    }
+   ],
+   "source": [
+    "angle_nhh = nhh.angle\n",
+    "print(angle_nhh.value())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Note that the order of the atoms matters for angles, dihedrals, and impropers. The value returned for an angle is the angle between first and third atom, with the apex at the second. Fancy indexing is one way to get an ordered AtomGroup.\n",
+    "```\n",
+    "   3\n",
+    "  /\n",
+    " /\n",
+    "2------1\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['HT1' 'N' 'HT2']\n"
+     ]
+    }
+   ],
+   "source": [
+    "hnh = u.atoms[[1, 0, 2]]\n",
+    "print(hnh.names)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "106.203636\n"
+     ]
+    }
+   ],
+   "source": [
+    "angle_hnh = hnh.angle\n",
+    "print(angle_hnh.value())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Working with trajectories"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The [trajectory of a Universe contains the changing coordinate information](https://mdanalysis.org/UserGuide/trajectories/trajectories.html). The number of frames in a trajectory is its length:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "98\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(len(u.trajectory))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The standard way to assess the information of each frame in a trajectory is to iterate over it. When the timestep changes, the universe only contains information associated with that timestep."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Frame:   0, Time:    1 ps, Rgyr: 16.669 A\n",
+      "Frame:   1, Time:    2 ps, Rgyr: 16.6732 A\n",
+      "Frame:   2, Time:    3 ps, Rgyr: 16.7315 A\n",
+      "Frame:   3, Time:    4 ps, Rgyr: 16.7223 A\n",
+      "Frame:   4, Time:    5 ps, Rgyr: 16.744 A\n",
+      "Frame:   5, Time:    6 ps, Rgyr: 16.7185 A\n",
+      "Frame:   6, Time:    7 ps, Rgyr: 16.7741 A\n",
+      "Frame:   7, Time:    8 ps, Rgyr: 16.7764 A\n",
+      "Frame:   8, Time:    9 ps, Rgyr: 16.7894 A\n",
+      "Frame:   9, Time:   10 ps, Rgyr: 16.8289 A\n",
+      "Frame:  10, Time:   11 ps, Rgyr: 16.8521 A\n",
+      "Frame:  11, Time:   12 ps, Rgyr: 16.8549 A\n",
+      "Frame:  12, Time:   13 ps, Rgyr: 16.8723 A\n",
+      "Frame:  13, Time:   14 ps, Rgyr: 16.9108 A\n",
+      "Frame:  14, Time:   15 ps, Rgyr: 16.9494 A\n",
+      "Frame:  15, Time:   16 ps, Rgyr: 16.981 A\n",
+      "Frame:  16, Time:   17 ps, Rgyr: 17.0033 A\n",
+      "Frame:  17, Time:   18 ps, Rgyr: 17.0196 A\n",
+      "Frame:  18, Time:   19 ps, Rgyr: 17.0784 A\n",
+      "Frame:  19, Time:   20 ps, Rgyr: 17.1265 A\n"
+     ]
+    }
+   ],
+   "source": [
+    "for ts in u.trajectory[:20]:\n",
+    "    time = u.trajectory.time\n",
+    "    rgyr = u.atoms.radius_of_gyration()\n",
+    "    print(\"Frame: {:3d}, Time: {:4.0f} ps, Rgyr: {:g} A\".format(ts.frame, time, rgyr))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "After iteration, the trajectory 'resets' back to the first frame. Please see [the user guide](https://mdanalysis.org/UserGuide/trajectories/trajectories.html) for more information."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.trajectory.frame)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "You can set the timestep of the trajectory with the frame index:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "10\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(u.trajectory[10].frame)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "This persists until the timestep is next changed."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Frame:  10, Time:   11 ps, Rgyr: 16.8521 A\n"
+     ]
+    }
+   ],
+   "source": [
+    "frame = u.trajectory.frame\n",
+    "time = u.trajectory.time\n",
+    "rgyr = u.atoms.radius_of_gyration()\n",
+    "print(\"Frame: {:3d}, Time: {:4.0f} ps, Rgyr: {:g} A\".format(frame, time, rgyr))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Generally, trajectory analysis first collects frame-wise data in a list."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "rgyr = []\n",
+    "time = []\n",
+    "protein = u.select_atoms(\"protein\")\n",
+    "for ts in u.trajectory:\n",
+    "    time.append(u.trajectory.time)\n",
+    "    rgyr.append(protein.radius_of_gyration())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "This can then be converted into other data structures, such as a numpy array or a pandas DataFrame. It can be plotted (as below), or used for further analysis. The following section requires the [pandas](https://pandas.pydata.org) package, which can be installed with:\n",
+    "\n",
+    "``conda install pandas``\n",
+    "\n",
+    "or \n",
+    "\n",
+    "``pip install pandas``"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>Radius of gyration (A)</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>Time (ps)</th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1.0</th>\n",
+       "      <td>16.669018</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2.0</th>\n",
+       "      <td>16.673217</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3.0</th>\n",
+       "      <td>16.731454</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4.0</th>\n",
+       "      <td>16.722283</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5.0</th>\n",
+       "      <td>16.743961</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "           Radius of gyration (A)\n",
+       "Time (ps)                        \n",
+       "1.0                     16.669018\n",
+       "2.0                     16.673217\n",
+       "3.0                     16.731454\n",
+       "4.0                     16.722283\n",
+       "5.0                     16.743961"
+      ]
+     },
+     "execution_count": 29,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "import pandas as pd\n",
+    "rgyr_df = pd.DataFrame(rgyr, columns=['Radius of gyration (A)'], index=time)\n",
+    "rgyr_df.index.name = 'Time (ps)'\n",
+    "\n",
+    "rgyr_df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x10d5d0fd0>"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "%matplotlib inline\n",
+    "\n",
+    "rgyr_df.plot(title='Radius of gyration')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Dynamic selection"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "As seen above, coordinates change while iterating over the trajectory. Therefore, properties calculated from the coordinates, such as the radius of gyration, also change. \n",
+    "\n",
+    "Selections are often defined on static properties that do not change when moving through a trajectory. Above, the static selection is all the atoms that are in a protein. You can define the selection once and then recalculate the property of interest for each frame of the trajectory.\n",
+    "\n",
+    "However, some selections contain distance-dependent queries (such as `around` or `point`, [see selection keywords for more details](https://www.mdanalysis.org/UserGuide/selections)). In this case, the selection should be updated for each time step using a dynamic selection by setting the keyword `updating=True`. This command gives an `UpdatingAtomGroup` rather than a static `AtomGroup`.\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'MDAnalysis.core.groups.UpdatingAtomGroup'>\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 54 atoms, with selection 'around 2 resname ALA' on the entire Universe.>"
+      ]
+     },
+     "execution_count": 31,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dynamic = u.select_atoms('around 2 resname ALA', updating=True)\n",
+    "print(type(dynamic))\n",
+    "dynamic"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'MDAnalysis.core.groups.AtomGroup'>\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 54 atoms>"
+      ]
+     },
+     "execution_count": 32,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "static = u.select_atoms('around 2 resname ALA')\n",
+    "print(type(static))\n",
+    "static"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "When you call the next frame of the universe, the atoms in the dynamic selection are updated, whereas the atoms in the static selection remain the same."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 56 atoms, with selection 'around 2 resname ALA' on the entire Universe.>"
+      ]
+     },
+     "execution_count": 33,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "u.trajectory.next()\n",
+    "dynamic"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 34,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<AtomGroup with 54 atoms>"
+      ]
+     },
+     "execution_count": 34,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "static"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Writing out coordinates"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis supports [writing data out](https://www.mdanalysis.org/UserGuide/reading_and_writing.html#output) into a range of file formats, including both single frame formats (e.g. PDB, GRO) and trajectory writers (e.g. XTC, DCD, and multi-frame PDB files). The user guide has a [complete list of formats](https://mdanalysis.org/UserGuide/formats/index.html), each with their own [reference pages](https://mdanalysis.org/UserGuide/formats/format_reference.html)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Single frame"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The most straightforward way to write to a file that can only hold a single frame is to use the `write()` method of any `AtomGroup`. MDAnalysis uses the file extension to determine the output file format. For instance, to only write out the $C_{\\alpha}$ atoms to a file in GRO format:\n",
+    "\n",
+    "```python\n",
+    "ca = u.select_atoms('name CA')\n",
+    "ca.write('calphas.gro')\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Trajectories"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The [standard way to write out trajectories](https://www.mdanalysis.org/UserGuide/reading_and_writing.html#output) is to:\n",
+    "\n",
+    "1. Open a trajectory `Writer` and specify how many atoms a frame will contain\n",
+    "2. Iterate through the trajectory and write coordinates frame-by-frame with `Writer.write()`\n",
+    "3. If you do not use the context manager and the `with` statement below, you then need to close the trajectory with `.close()`.\n",
+    "\n",
+    "For instance, to write out the $C_{\\alpha}$ atoms to a trajectory in the XTC format:\n",
+    "\n",
+    "```python\n",
+    "ca = u.select_atoms('name CA')\n",
+    "with mda.Writer('calphas.xtc', ca.n_atoms) as w:\n",
+    "    for ts in u.trajectory:\n",
+    "        w.write(ca)\n",
+    "```"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Analysis"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis comes with a [diverse set of analysis modules](https://www.mdanalysis.org/UserGuide/analysis), and the building blocks to [implement your own](https://mdanalysis.org/UserGuide/examples/analysis/custom_trajectory_analysis.html).\n",
+    "\n",
+    "The majority of these follow a common interface:\n",
+    "\n",
+    "1. Initialise the analysis with a `Universe` and other required parameters.\n",
+    "2. Run the analysis with `.run()`. Optional arguments are the `start` frame index, `stop` frame index, `step` size, and toggling `verbose`. The default is to run analysis on the whole trajectory.\n",
+    "3. Results are stored within the class.\n",
+    "4. Often, a function is available to operate on single frames.\n",
+    "\n",
+    "**However, not all analysis uses this model. It is important to check the documentation for each analysis.** You can also see examples in the [Example gallery](https://www.mdanalysis.org/UserGuide/examples/).\n",
+    "\n",
+    "Below, simple RMSD analysis is shown. The `rms` module follows the interface above."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### RMSD"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Not all sub-modules of MDAnalysis are imported with `import MDAnalysis`. Most analysis modules have to be imported explicitly. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from MDAnalysis.analysis import rms"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "MDAnalysis provides a `rmsd()` function for calculating the RMSD between two numpy arrays of coordinates."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "6.852774844656239"
+      ]
+     },
+     "execution_count": 36,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "bb = u.select_atoms('backbone')\n",
+    "\n",
+    "u.trajectory[0] # first frame\n",
+    "first = bb.positions\n",
+    "\n",
+    "u.trajectory[-1] #last frame\n",
+    "last = bb.positions\n",
+    "\n",
+    "rms.rmsd(first, last)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "An `RMSD` class is also provided to operate on trajectories. \n",
+    "\n",
+    "Below, the `RMSD` class is created. \n",
+    "* The first argument is the `AtomGroup` or `Universe` for which the RMSD is calculated. \n",
+    "* As a reference `AtomGroup` or `Universe` is not given as the second argument, the default is to align to the current frame of the first argument. Here it is set to the first frame. \n",
+    "* We choose to align the trajectory over the backbone atoms, and then compute the RMSD for the backbone atoms (`select`). \n",
+    "* Then, without re-aligning the trajectory, the RMSD is also computed (`groupselections`) for the $C_{\\alpha}$ atoms (`name CA`) and every protein atom (`protein`).\n",
+    "\n",
+    "The RMSD is computed when we call `.run()`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 37,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<MDAnalysis.analysis.rms.RMSD at 0x10d56f160>"
+      ]
+     },
+     "execution_count": 37,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "u.trajectory[0] # set to first frame\n",
+    "rmsd_analysis = rms.RMSD(u, select='backbone', groupselections=['name CA', 'protein'])\n",
+    "rmsd_analysis.run()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The results are stored in the `.rmsd` attribute. This is an array with the shape (n_frames, 2 + n_selections)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(98, 5)\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(rmsd_analysis.rmsd.shape)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can interpret this as an array with 98 rows and 5 columns. Each row is the RMSD associated with a frame in the trajectory. The columns are as follows:\n",
+    "\n",
+    "1. Frame number\n",
+    "2. Time (ps)\n",
+    "3. RMSD (backbone)\n",
+    "4. RMSD (C-alpha)\n",
+    "5. RMSD (protein)\n",
+    "\n",
+    "We can turn this into a `pandas` DataFrame and plot the results."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 39,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>Backbone</th>\n",
+       "      <th>C-alphas</th>\n",
+       "      <th>Protein</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>Time (ps)</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1.0</th>\n",
+       "      <td>7.379926e-07</td>\n",
+       "      <td>4.486855e-08</td>\n",
+       "      <td>5.645801e-08</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2.0</th>\n",
+       "      <td>4.636592e-01</td>\n",
+       "      <td>4.235205e-01</td>\n",
+       "      <td>6.934167e-01</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3.0</th>\n",
+       "      <td>6.419340e-01</td>\n",
+       "      <td>5.939111e-01</td>\n",
+       "      <td>8.748416e-01</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4.0</th>\n",
+       "      <td>7.743983e-01</td>\n",
+       "      <td>7.371346e-01</td>\n",
+       "      <td>1.052780e+00</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5.0</th>\n",
+       "      <td>8.588600e-01</td>\n",
+       "      <td>8.279498e-01</td>\n",
+       "      <td>1.154986e+00</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "               Backbone      C-alphas       Protein\n",
+       "Time (ps)                                          \n",
+       "1.0        7.379926e-07  4.486855e-08  5.645801e-08\n",
+       "2.0        4.636592e-01  4.235205e-01  6.934167e-01\n",
+       "3.0        6.419340e-01  5.939111e-01  8.748416e-01\n",
+       "4.0        7.743983e-01  7.371346e-01  1.052780e+00\n",
+       "5.0        8.588600e-01  8.279498e-01  1.154986e+00"
+      ]
+     },
+     "execution_count": 39,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "import pandas as pd\n",
+    "\n",
+    "rmsd_df = pd.DataFrame(rmsd_analysis.rmsd[:, 2:],\n",
+    "                       columns=['Backbone', 'C-alphas', 'Protein'],\n",
+    "                       index=rmsd_analysis.rmsd[:, 1])\n",
+    "rmsd_df.index.name = 'Time (ps)'\n",
+    "rmsd_df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 40,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x10d56d080>"
+      ]
+     },
+     "execution_count": 40,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "rmsd_df.plot(title='RMSD')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "See the [analysis documentation](https://mdanalysis.org/UserGuide/examples/README.html) for more information."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## References"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "When using MDAnalysis in published work, please cite both these papers:\n",
+    "\n",
+    "* N. Michaud-Agrawal, E. J. Denning, T. B. Woolf, and O. Beckstein. MDAnalysis: A Toolkit for the Analysis of Molecular Dynamics Simulations. *J. Comput. Chem.* **32** (2011), 2319–2327. doi:[10.1002/jcc.21787](http://dx.doi.org/10.1002/jcc.21787)\n",
+    "\n",
+    "* R. J. Gowers, M. Linke, J. Barnoud, T. J. E. Reddy, M. N.\n",
+    "   Melo, S. L. Seyler, D. L. Dotson, J. Domanski, S. Buchoux, I. M. Kenney,\n",
+    "   and O. Beckstein. [MDAnalysis: A Python package for the rapid analysis of\n",
+    "   molecular dynamics simulations](http://conference.scipy.org/proceedings/scipy2016/oliver_beckstein.html). In S. Benthall and S. Rostrup, editors,\n",
+    "   *Proceedings of the 15th Python in Science Conference*, pages 98-105,\n",
+    "   Austin, TX, 2016. SciPy. doi:[10.25080/Majora-629e541a-00e](https://doi.org/10.25080/Majora-629e541a-00e)\n",
+    "   \n",
+    "MDAnalysis includes many algorithms and modules that should also be individually cited. For example, if you use the `MDAnalysis.analysis.rms` or `MDAnalysis.analysis.align` modules, please cite:\n",
+    "\n",
+    "* Douglas L. Theobald. Rapid calculation of RMSD using a\n",
+    "   quaternion-based characteristic polynomial. *Acta Crystallographica A*\n",
+    "   **61** (2005), 478-480.\n",
+    "* Pu Liu, Dmitris K. Agrafiotis, and Douglas L. Theobald. Fast\n",
+    "   determination of the optimal rotational matrix for macromolecular\n",
+    "   superpositions. *J. Comput. Chem.* **31** (2010), 1561–1563.\n",
+    "   \n",
+    "The primary sources of each module will be in their documentation."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Automatic citations with duecredit"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Citations can be also be automatically generated using `duecredit`. [Complete installation and usage instructions can be found in the user guide](https://mdanalysis.org/UserGuide/references.html), but it is simple to generate a list of citations for your python script `my_script.py`.\n",
+    "\n",
+    "```console\n",
+    "$ python -m duecredit my_script.py\n",
+    "```\n",
+    "\n",
+    "This extracts citations into a hidden file, which can then be exported to different formats. For example, to display them as BibTeX, use the command:\n",
+    "\n",
+    "```console\n",
+    "$ duecredit summary --format=bibtex\n",
+    "```"
+   ]
+  }
+ ],
+ "metadata": {
+  "celltoolbar": "Raw Cell Format",
+  "kernelspec": {
+   "display_name": "Python (mda0180)",
+   "language": "python",
+   "name": "mda0180"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.7"
+  },
+  "nbsphinx-toctree": {
+   "maxdepth": 2,
+   "numbered": true
+  },
+  "toc": {
+   "base_numbering": 1,
+   "nav_menu": {},
+   "number_sections": false,
+   "sideBar": true,
+   "skip_h1_title": false,
+   "title_cell": "Table of Contents",
+   "title_sidebar": "Contents",
+   "toc_cell": false,
+   "toc_position": {},
+   "toc_section_display": true,
+   "toc_window_display": false
+  },
+  "widgets": {
+   "application/vnd.jupyter.widget-state+json": {
+    "state": {},
+    "version_major": 2,
+    "version_minor": 0
+   }
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
